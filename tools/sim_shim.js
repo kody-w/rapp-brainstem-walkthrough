@@ -234,7 +234,9 @@
 
     // 8) Fallback — honest about being the training copy
     response = 'Straight answer: this page is the **walkthrough copy** of the brainstem — the real UI wired to a canned brain, so you can train with zero setup. I can act out the guided-tour moves: memory, the agents panel, Hacker News, the registry, and building an agent with LearnNew.\n\n' +
-      'Take the tour (the pill in the welcome message above), or install the real thing — live model, real agents — in one line: **[aka.ms/rappinstall](' + INSTALL_URL + ')**';
+      'Take the tour (the pill in the welcome message above). Want the real thing? Two ways:\n' +
+      '- **Go live right here** — click *"sign in with GitHub to go live"* (bottom left) and this exact page becomes a real brainstem running in your browser, powered by your Copilot access.\n' +
+      '- **Install locally** in one line: **[aka.ms/rappinstall](' + INSTALL_URL + ')**';
     return { response: response, logs: null };
   }
 
@@ -381,15 +383,25 @@
   }
 
   // ── fetch interception ──
+  // Two tiers: if the live bridge (tools/live_bridge.js) is active — the
+  // user signed in with GitHub — brainstem routes go to the REAL brainstem
+  // (brainstem_web.py in a Pyodide worker) and the RAR registry is fetched
+  // for real. Otherwise the static simulation answers. /login traffic always
+  // goes live: signing in IS the upgrade path out of the sim.
   var realFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     try {
       var url = (typeof input === 'string') ? input : ((input && input.url) || '');
       var u = new URL(url, location.href);
+      var LIVE = window.__VB_LIVE__;
       var hit = null;
       if (u.origin === location.origin || /^127\.0\.0\.1|^localhost$/.test(u.hostname)) {
+        if (LIVE && LIVE.handles(u.pathname) && (LIVE.isLive() || LIVE.wantsPath(u.pathname))) {
+          return LIVE.fetch(u, input, init);
+        }
         hit = routeApi(u, init || (typeof input === 'object' ? input : null));
       } else if (/raw\.githubusercontent\.com|cdn\.jsdelivr\.net/.test(u.hostname)) {
+        if (LIVE && LIVE.isLive()) return realFetch(input, init);
         hit = routeRar(u);
       }
       if (hit) return Promise.resolve(hit);
@@ -401,6 +413,14 @@
   var realOpen = window.open ? window.open.bind(window) : null;
   window.open = function (url, target, features) {
     try {
+      var LIVE = window.__VB_LIVE__;
+      if (LIVE && LIVE.isLive() && typeof url === 'string') {
+        var lu = new URL(url, location.href);
+        if (lu.origin === location.origin && LIVE.handles(lu.pathname)) {
+          LIVE.download(lu);
+          return null;
+        }
+      }
       if (typeof url === 'string' && url.indexOf('/agents/export/') !== -1) {
         var name = decodeURIComponent(url.split('/agents/export/')[1].split(/[?#]/)[0]);
         if (S.files[name] != null) {

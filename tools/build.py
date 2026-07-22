@@ -61,6 +61,7 @@ def main():
     stock = read(os.path.join(BRAINSTEM, "index.html"))
     version = read(os.path.join(BRAINSTEM, "VERSION")).strip()
     shim = read(os.path.join(HERE, "sim_shim.js"))
+    bridge = read(os.path.join(HERE, "live_bridge.js"))
 
     sim_files = {}
     for name in PREINSTALLED:
@@ -97,6 +98,9 @@ def main():
           .replace("__SIM_RAR_FILES__", json.dumps(rar_files)))
     if "__SIM_" in js:
         sys.exit("unreplaced placeholder in shim")
+    # Live tier: the vbrainstem bridge rides in the same script block, after
+    # the sim, so index.html stays a single file for the zero-dependency case.
+    js += "\n" + bridge
     # The shim is inlined into a <script> element — a literal "</script>"
     # inside any embedded agent string would terminate it early.
     js = js.replace("</script", "<\\/script")
