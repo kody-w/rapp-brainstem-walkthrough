@@ -101,6 +101,31 @@ def main():
     # inside any embedded agent string would terminate it early.
     js = js.replace("</script", "<\\/script")
 
+    # The tour's finale is the walkthrough's call to action: the stock copy
+    # points at the VS Code workshop / Training Quest, but a trainee on this
+    # static page has no local brainstem yet — send them to the installer.
+    stock_finale = (
+        "            <p>Ready for the deep end? The <strong>VS Code button</strong> "
+        "up top opens the workshop — GitHub Copilot builds new agents on this "
+        "brainstem while you watch. It can't even tell Copilot and you apart.</p>\n"
+        "            <p><em>Want to go further? The <a href=\"https://blazingbeard.github.io/quests/rapp-brainstem.html\" "
+        "target=\"_blank\" style=\"color:#58a6ff\">full Training Quest</a> picks up "
+        "where this tour ends.</em></p>"
+    )
+    cta_finale = (
+        "            <p>This was the training copy — a canned brain, zero setup. "
+        "The real brainstem does everything you just did live on your machine, "
+        "with a real model behind it.</p>\n"
+        "            <p class=\"tc-punch\">Ready for the real thing? One line installs it:</p>\n"
+        "            <p style=\"text-align:center;margin-top:12px\"><a href=\"https://aka.ms/rappinstall\" "
+        "target=\"_blank\" rel=\"noopener\" style=\"display:inline-block;background:#1f6feb;color:#fff;"
+        "font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none\">"
+        "Install it locally — aka.ms/rappinstall</a></p>"
+    )
+    if stock.count(stock_finale) != 1:
+        sys.exit("finale copy drifted in stock index.html — update stock_finale in build.py")
+    stock = stock.replace(stock_finale, cta_finale, 1)
+
     marker = "<body>"
     if stock.count(marker) != 1:
         sys.exit("expected exactly one <body> in stock index.html")

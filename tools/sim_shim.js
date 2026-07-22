@@ -17,7 +17,7 @@
   var SIM_FILES = __SIM_FILES__;
   var SIM_CATALOG = __SIM_CATALOG__;
   var SIM_RAR_FILES = __SIM_RAR_FILES__;
-  var INSTALL_CMD = 'curl -fsSL https://kody-w.github.io/rapp-installer/install.sh | bash';
+  var INSTALL_URL = 'https://aka.ms/rappinstall';
 
   window.__RAPP_SIM__ = { build: SIM_BUILD, version: SIM_VERSION };
 
@@ -234,8 +234,7 @@
 
     // 8) Fallback — honest about being the training copy
     response = 'Straight answer: this page is the **walkthrough copy** of the brainstem — the real UI wired to a canned brain, so you can train with zero setup. I can act out the guided-tour moves: memory, the agents panel, Hacker News, the registry, and building an agent with LearnNew.\n\n' +
-      'Take the tour (the pill in the welcome message above), or run the real thing — live model, real agents — with one line:\n\n' +
-      '```bash\n' + INSTALL_CMD + '\n```';
+      'Take the tour (the pill in the welcome message above), or install the real thing — live model, real agents — in one line: **[aka.ms/rappinstall](' + INSTALL_URL + ')**';
     return { response: response, logs: null };
   }
 
@@ -334,7 +333,7 @@
       case '/login':
       case '/login/poll':
       case '/login/retry': return jres({ status: 'ok' });
-      case '/login/switch': return jres({ error: 'This is the static walkthrough — there\'s no account here to switch. Install the real brainstem to sign in: ' + INSTALL_CMD });
+      case '/login/switch': return jres({ error: 'This is the static walkthrough — there\'s no account here to switch. Install the real brainstem to sign in: ' + INSTALL_URL });
       case '/diagnostics/book.json':
         return jres({ generated_by: 'rapp-brainstem-walkthrough static simulator', build: SIM_BUILD, note: 'No live diagnostics — this page runs entirely in your browser.' });
       case '/agents': {
@@ -422,4 +421,24 @@
     } catch (e) { }
     return realOpen ? realOpen(url, target, features) : null;
   };
+
+  // ── Auto-start the tour ──
+  // This page exists to run the 14-step guide, so enter it immediately —
+  // no hunting for the invite pill. Guards keep it polite: it auto-starts
+  // at most ONCE per browser (exiting via ✕ clears rapp_tour_step but not
+  // rapp_tour_done, so without our own flag a reload would trap the user
+  // back in the tour), a finished tour never restarts, and a mid-flight
+  // tour is left to the stock resume logic. ?reset clears everything.
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      try {
+        if (localStorage.getItem('rapp_tour_done')) return;
+        if (localStorage.getItem('rapp_sim_tour_auto')) return;
+        if (localStorage.getItem('rapp_tour_step') !== null) return;
+        if (typeof window.startTour !== 'function') return;
+        localStorage.setItem('rapp_sim_tour_auto', '1');
+        window.startTour();
+      } catch (e) { }
+    }, 700);
+  });
 })();
