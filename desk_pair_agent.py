@@ -1,15 +1,15 @@
 """
-tethered_vbrainstem_agent.py — pair a phone to THIS computer's brainstem,
+desk_pair_agent.py — Desk Pair: pair a phone to THIS computer's brainstem,
 Apple-style.
 
-Ask the brainstem to "tether my phone" and it opens a pairing page in a
+Ask the brainstem to "desk pair my phone" and it opens a pairing page in a
 browser tab. The page hosts a sealed WebRTC bridge (rapp-neighborhood-protocol
 /1.0, channel 5a-tether) in front of this brainstem's /chat and shows a QR.
 
 The ceremony (deliberately shaped like Apple device pairing):
   1. Scan the QR with the phone — the QR carries ONLY a peer-id. Scanning
      alone grants nothing.
-  2. The phone shows a 6-digit tether code.
+  2. The phone shows a 6-digit pairing code.
   3. The human types that code INTO THE COMPUTER (the pairing page). The code
      never crosses the network — only a salted hash does, and the host gets
      exactly ONE attempt per code.
@@ -32,8 +32,8 @@ import webbrowser
 
 from agents.basic_agent import BasicAgent
 
-PHONE_PAGE = "https://kody-w.github.io/rapp-brainstem-walkthrough/tether.html"
-TETHER_PORT = int(os.environ.get("TETHER_PORT", "7099"))
+PHONE_PAGE = "https://kody-w.github.io/rapp-brainstem-walkthrough/deskpair.html"
+DESKPAIR_PORT = int(os.environ.get("DESKPAIR_PORT", os.environ.get("TETHER_PORT", "7099")))
 
 
 def _read_or_create_secret(brainstem_dir):
@@ -69,56 +69,67 @@ class _TetherPageHandler(http.server.SimpleHTTPRequestHandler):
         if host not in ("localhost", "127.0.0.1", "[::1]", "::1"):
             self.send_error(400, "loopback only")
             return
-        if self.path.split("?")[0] not in ("/tether_host.html",):
+        if self.path.split("?")[0] not in ("/desk_pair_host.html",):
             self.send_error(404)
             return
         super().do_GET()
 
 
-def _serve_tether_dir(directory, port):
-    """Start (or reuse) the loopback page server. Fixed port: if it's already
-    bound, a previous invocation's server is still up and serves the freshly
-    rewritten file from disk."""
-    try:
+def _serve_tether_dir(directory, start_port):
+    """Start (or reuse) the loopback page server. Walk a small port range:
+    reuse a busy port only if it actually serves THIS page (an older server
+    thread from a previous agent version may hold the port but 404 the new
+    filename); otherwise bind the next free port. Returns the port, or None."""
+    import urllib.request
+    for port in range(start_port, start_port + 10):
         probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         probe.settimeout(0.3)
         in_use = probe.connect_ex(("127.0.0.1", port)) == 0
         probe.close()
         if in_use:
-            return True
-        handler = functools.partial(_TetherPageHandler, directory=directory)
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
-        threading.Thread(target=server.serve_forever, daemon=True,
-                         name="tether-page-server").start()
-        return True
-    except Exception:
-        return False
+            try:
+                r = urllib.request.urlopen(
+                    f"http://127.0.0.1:{port}/desk_pair_host.html", timeout=1)
+                if r.status == 200:
+                    return port
+            except Exception:
+                pass
+            continue
+        try:
+            handler = functools.partial(_TetherPageHandler, directory=directory)
+            server = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
+            threading.Thread(target=server.serve_forever, daemon=True,
+                             name="deskpair-page-server").start()
+            return port
+        except Exception:
+            continue
+    return None
 
 __manifest__ = {
     "schema": "rapp-agent/1.0",
-    "name": "@kody-w/tethered_vbrainstem",
+    "name": "@kody-w/desk_pair",
     "version": "1.0.0",
-    "display_name": "Tether My Phone",
+    "display_name": "Desk Pair",
     "description": "Opens a QR pairing page so a phone can become a sealed remote control for this brainstem — Apple-style: scan, then type the phone's code into the computer to confirm.",
     "author": "kody-w",
-    "tags": ["tether", "neighborhood", "webrtc", "pairing", "remote"],
+    "tags": ["deskpair", "tether", "neighborhood", "webrtc", "pairing", "remote"],
     "category": "platform",
     "quality_tier": "official",
     "requires_env": [],
-    "example_call": "Tether my phone to this brainstem",
+    "example_call": "Desk pair my phone to this brainstem",
 }
 
 
-class TetheredVBrainstemAgent(BasicAgent):
+class DeskPairAgent(BasicAgent):
     def __init__(self):
-        self.name = "TetherMyPhone"
+        self.name = "DeskPair"
         self.metadata = {
             "name": self.name,
             "description": (
-                "Pair a phone (or any other device) to this computer's brainstem as a "
+                "Desk Pair: pair a phone (or any other device) to this computer's brainstem as a "
                 "remote control. Opens a browser tab with a QR code; the user scans it, "
                 "the phone shows a 6-digit code, and typing that code into the computer "
-                "completes the tether. Use when the user asks to tether, pair, link, or "
+                "completes the tether. Use when the user asks to desk pair, tether, pair, link, or "
                 "control this brainstem from their phone."
             ),
             "parameters": {
@@ -151,15 +162,15 @@ class TetheredVBrainstemAgent(BasicAgent):
             open_browser = open_browser.strip().lower() not in ("false", "0", "no")
 
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        out_dir = os.path.join(base_dir, ".brainstem_data", "tether")
+        out_dir = os.path.join(base_dir, ".brainstem_data", "deskpair")
         os.makedirs(out_dir, exist_ok=True)
-        out_path = os.path.join(out_dir, "tether_host.html")
+        out_path = os.path.join(out_dir, "desk_pair_host.html")
 
         config = {
             "bs": bs_url,
             "secret": _read_or_create_secret(base_dir),
-            "phone_page": os.environ.get("TETHER_PHONE_PAGE", PHONE_PAGE),
-            "host_name": os.environ.get("TETHER_HOST_NAME", "your computer"),
+            "phone_page": os.environ.get("DESKPAIR_PHONE_PAGE", os.environ.get("TETHER_PHONE_PAGE", PHONE_PAGE)),
+            "host_name": os.environ.get("DESKPAIR_HOST_NAME", os.environ.get("TETHER_HOST_NAME", "your computer")),
             "session": secrets.token_hex(4),
         }
         html = _HOST_PAGE.replace("%%CONFIG%%", json.dumps(config))
@@ -170,12 +181,14 @@ class TetheredVBrainstemAgent(BasicAgent):
         except Exception:
             pass
 
-        if not _serve_tether_dir(out_dir, TETHER_PORT):
+        port = _serve_tether_dir(out_dir, DESKPAIR_PORT)
+        if not port:
             return (
-                "Could not start the local pairing-page server on port "
-                f"{TETHER_PORT}. Set TETHER_PORT to a free port and try again."
+                "Could not start the local pairing-page server (ports "
+                f"{DESKPAIR_PORT}-{DESKPAIR_PORT + 9} all unusable). Set "
+                "DESKPAIR_PORT to a free port and try again."
             )
-        page_url = f"http://localhost:{TETHER_PORT}/tether_host.html"
+        page_url = f"http://localhost:{port}/desk_pair_host.html"
 
         opened = False
         if open_browser:
@@ -185,13 +198,13 @@ class TetheredVBrainstemAgent(BasicAgent):
                 opened = False
 
         return (
-            f"Tether pairing page ready{' — opening it in your browser now' if opened else ''}.\n\n"
+            f"Desk Pair page ready{' — opening it in your browser now' if opened else ''}.\n\n"
             f"1. On the page that {'just opened' if opened else f'is at {page_url}'}, "
             f"a QR code appears.\n"
-            f"2. Scan it with your phone's camera — the phone shows a 6-digit tether code.\n"
+            f"2. Scan it with your phone's camera — the phone shows a 6-digit pairing code.\n"
             f"3. Type that code into the pairing page on this computer. That typed code is the "
             f"human sign-off: until you enter it, the phone can't control anything.\n\n"
-            f"Once tethered, your phone drives THIS brainstem ({bs_url}) over an end-to-end "
+            f"Once paired, your phone drives THIS brainstem ({bs_url}) over an end-to-end "
             f"sealed channel (rapp-sealed/1.0). Close the pairing tab to end the session."
         )
 
@@ -206,7 +219,7 @@ _HOST_PAGE = r"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tether a device</title>
+<title>Desk Pair</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -251,20 +264,20 @@ _HOST_PAGE = r"""<!doctype html>
 </head><body>
 <div class="card" id="card">
   <div id="scan-panel">
-    <h1>Tether a device</h1>
+    <h1>Desk Pair</h1>
     <p class="sub">Scan with your phone's camera to pair it with this brainstem.</p>
-    <img id="qr" alt="Scan to tether">
+    <img id="qr" alt="Scan to pair">
     <div class="pill" id="status"><span class="dot"></span><span id="status-text">starting…</span></div>
   </div>
   <div class="code-entry" id="code-panel">
     <h1>Enter the code shown on <span class="device" id="dev-name">the device</span></h1>
-    <p class="sub">This confirms you — a human at this computer — approve the tether.</p>
+    <p class="sub">This confirms you — a human at this computer — approve the pair.</p>
     <div class="boxes" id="boxes"></div>
     <div class="err" id="code-err"></div>
   </div>
   <div class="code-entry" id="done-panel">
     <div class="tick"><svg viewBox="0 0 24 24"><polyline points="4 12.5 10 18.5 20 6.5"/></svg></div>
-    <h1>Tethered</h1>
+    <h1>Paired</h1>
     <p class="sub"><span class="device" id="dev-name2">The device</span> now drives this brainstem
       over a sealed channel. Close this tab to end the session.</p>
     <div id="log"></div>
@@ -415,7 +428,7 @@ _HOST_PAGE = r"""<!doctype html>
     $('#done-panel').classList.add('active');
     $('#dev-name2').textContent = pairing.device || 'The device';
     document.getElementById('card').classList.add('paired');
-    log('TETHERED — ' + conn.peer.slice(0, 8) + '… now drives ' + CFG.bs);
+    log('PAIRED — ' + conn.peer.slice(0, 8) + '… now drives ' + CFG.bs);
   }
 
   // ── Envelope handling (twin-chat, sealed after pairing) ──
@@ -424,16 +437,40 @@ _HOST_PAGE = r"""<!doctype html>
     if (raw && raw.schema === 'rapp-sealed/1.0') {
       sealed = true;
       try { msg = await open_(state.token, raw); }
-      catch (e) { log('DENIED sealed message (decrypt/auth failed)'); return; }
+      catch (e) {
+        // A stale token (this page was re-run since the phone paired) decrypts
+        // to nothing — tell the phone plainly so it falls back to a fresh
+        // pairing ceremony instead of hanging.
+        log('DENIED sealed message (decrypt/auth failed)');
+        try { conn.send({ schema: 'rapp-twin-chat/1.0', kind: 'resume-denied', from_rappid: myRappid() }); } catch (err) { }
+        return;
+      }
     }
     if (!msg || msg.schema !== 'rapp-twin-chat/1.0') return;
     var p = msg.payload || {};
 
     if (msg.kind === 'pair-request') {
-      if (state.pairedPeer) { log('ignored pair-request while tethered'); return; }
+      if (state.pairedPeer) { log('ignored pair-request while paired'); return; }
       state.pairing = { conn: conn, salt: p.salt, code_hash: p.code_hash, device: p.device };
       log('pair-request from ' + conn.peer.slice(0, 8) + '… (' + (p.device || 'device') + ')');
       showCodeEntry(state.pairing);
+      return;
+    }
+
+    // Desk Pair resume: a SEALED resume proves possession of the granted
+    // token (the human-approved session). Re-bind it to the phone's new
+    // peer-id — network hops and reloads change that id every time.
+    if (sealed && msg.kind === 'resume') {
+      state.pairedPeer = conn.peer;
+      log('RESUMED — ' + conn.peer.slice(0, 8) + '… re-attached by key possession');
+      $('#scan-panel').style.display = 'none';
+      $('#code-panel').classList.remove('active');
+      $('#done-panel').classList.add('active');
+      document.getElementById('card').classList.add('paired');
+      conn.send(await seal(state.token, {
+        schema: 'rapp-twin-chat/1.0', kind: 'resume-grant', from_rappid: myRappid(),
+        response: { host: CFG.host_name }
+      }));
       return;
     }
 
@@ -459,7 +496,7 @@ _HOST_PAGE = r"""<!doctype html>
       } else if (msg.kind === 'console') {
         if (p.method === 'health') await respond('console', 200, await bsGet('/health'));
         else if (p.method === 'agents') { var h = await bsGet('/health'); await respond('console', 200, { agents: h.agents || [] }); }
-        else await respond('console', 400, { error: 'tether supports: say, console.health, console.agents' });
+        else await respond('console', 400, { error: 'desk pair supports: say, console.health, console.agents' });
       }
     } catch (e) {
       log('ERR ' + ((e && e.message) || e));
@@ -486,7 +523,7 @@ _HOST_PAGE = r"""<!doctype html>
         '&host=' + encodeURIComponent(CFG.host_name);
       $('#qr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=8&data=' + encodeURIComponent(join);
       status('waiting for a scan', false);
-      window.__TETHER__ = { id: id, join: join };   // test hook
+      window.__DESKPAIR__ = window.__TETHER__ = { id: id, join: join };   // test hook
       log('hosting — peer ' + id);
     });
     peer.on('connection', function (c) {
@@ -495,7 +532,12 @@ _HOST_PAGE = r"""<!doctype html>
       c.on('data', function (m) { handle(c, m); });
       c.on('close', function () {
         delete state.conns[c.peer];
-        if (c.peer === state.pairedPeer) { state.pairedPeer = null; state.token = null; log('tethered device left'); }
+        // Keep the token: the phone resumes by key possession after a network
+        // hop. The session only truly ends when this tab closes.
+        if (c.peer === state.pairedPeer) {
+          state.pairedPeer = null;
+          log('paired device disconnected — waiting for it to resume');
+        }
       });
     });
     peer.on('error', function (e) {
