@@ -1,22 +1,44 @@
-# RAPP Brainstem — The Full Guide Walkthrough
+# RAPP Brainstem — The Interactive Walkthrough
 
-**Watch it:** https://kody-w.github.io/rapp-brainstem-walkthrough/
+**Run it:** https://kody-w.github.io/rapp-brainstem-walkthrough/
 
-All 14 steps of the [RAPP Brainstem guide](https://github.com/kody-w/rapp-installer/blob/main/skill.md)
-— from a clean machine to an agent published in Teams and M365 Copilot — as one
-produced walkthrough video with seekable chapters.
+The real brainstem UI — byte-identical `index.html` from the product — running
+**"The First Interview"**, its 14-step guided tour, entirely in your browser.
+No server, no Python, no GitHub account, no dependencies: one static HTML file
+with a small simulator shim that answers the brainstem's own API calls
+(`/chat`, `/chat/stream`, `/agents`, the RAR registry) from canned, in-browser
+state. Memory persists in `localStorage`; append `?reset` to start fresh.
 
-Filmed on real surfaces only: the live installer page, the rendered guide, and an
-actual running brainstem answering on camera at `localhost:7071`. Produced locally
-with [RAPP Video](https://kody-w.github.io/rapp-video/) (`film/film.mjs` records the
-surfaces; the Walkthrough Studio renders captions, step counters, zooms, and title
-cards). No cloud editor touched the footage.
+Everything in the tour works for real against the simulation:
 
-| Tier | Steps | What you end up with |
-|---|---|---|
-| The Brainstem | 1–5 | Local agent server — no API keys, your Copilot seat is the engine |
-| The Spinal Cord | 6–11 | The same brainstem deployed to Azure, always-on |
-| The Nervous System | 12–14 | Your agent live in Teams and M365 Copilot |
+- **Memory** — introduce yourself, clear the chat, and it still knows you
+- **Agent surgery** — export, delete, and drag-drop-restore a live agent file
+- **Honesty** — ask for what it can no longer do and watch it say so
+- **The registry** — install `@rapp/learn_new` (SHA-256 verified in-page)
+- **Creation** — describe an agent in plain words; the file is written and hot-loaded
+
+When trainees finish, the real thing is one line away:
+
+```bash
+curl -fsSL https://kody-w.github.io/rapp-installer/install.sh | bash
+```
+
+## Also here: the produced video
+
+[**video.html**](https://kody-w.github.io/rapp-brainstem-walkthrough/video.html) —
+all 14 steps of the [full RAPP guide](https://github.com/kody-w/rapp-installer/blob/main/skill.md)
+(clean machine → Teams/M365 Copilot) as one produced walkthrough video with
+seekable chapters, filmed on real surfaces with [RAPP Video](https://kody-w.github.io/rapp-video/).
+
+## Rebuilding the page
+
+```bash
+python3 tools/build.py   # stock brainstem index.html + tools/sim_shim.js → index.html
+```
+
+The build injects the shim as the first `<script>` after `<body>` and embeds the
+preinstalled agent files plus a 10-agent RAR catalog subset (real bytes, digests
+recomputed to match). The stock UI is never edited.
 
 ---
 
