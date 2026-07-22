@@ -33,6 +33,19 @@ When trainees finish, the real thing is one line away:
 curl -fsSL https://kody-w.github.io/rapp-installer/install.sh | bash
 ```
 
+## Tether your phone (Apple-style pairing)
+
+Drop [`tethered_vbrainstem_agent.py`](tethered_vbrainstem_agent.py) into your
+on-device brainstem's `agents/` and say *"tether my phone"*. A pairing page
+opens with a QR (carrying **only** a peer-id — scanning grants nothing). Your
+phone opens [tether.html](https://kody-w.github.io/rapp-brainstem-walkthrough/tether.html),
+shows a 6-digit code, and **you type that code into the computer** — the human
+sign-off. The code never crosses the network (salted hash, one attempt); on
+match the session token is sealed to the phone (`rapp-sealed/1.0`,
+AES-256-GCM) and the phone becomes a sealed remote control for the computer's
+brainstem over `rapp-neighborhood-protocol/1.0` channel `5a-tether`. Close the
+pairing tab to end the session.
+
 ## Also here: the produced video
 
 [**video.html**](https://kody-w.github.io/rapp-brainstem-walkthrough/video.html) —
