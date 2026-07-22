@@ -33,24 +33,6 @@ When trainees finish, the real thing is one line away:
 curl -fsSL https://kody-w.github.io/rapp-installer/install.sh | bash
 ```
 
-## Desk Pair (Apple-style phone pairing)
-
-Pair a phone as a sealed remote control for a brainstem. Scan a QR (peer-id
-only — it grants nothing), the phone shows a 6-digit code, and **you type
-that code into the computer** — the human sign-off. The code never crosses
-the network (salted hash, one attempt); the session token is sealed to the
-phone (`rapp-sealed/1.0`, AES-256-GCM) over `rapp-neighborhood-protocol/1.0`
-channel `5a-tether`, and a dropped connection (Wi-Fi→cellular, reload)
-**resumes by key possession** — no new code.
-
-- **On-device brainstem:** drop [`desk_pair_agent.py`](desk_pair_agent.py)
-  into `agents/` and say *"desk pair my phone"*.
-- **Zero install (the vBrainstem case):** open
-  [deskpair-host.html on the vBrainstem](https://kody-w.github.io/vbrainstem/deskpair-host.html)
-  — it boots the brainstem in-page (Pyodide) and your phone drives that.
-- Phone page: [deskpair.html](https://kody-w.github.io/rapp-brainstem-walkthrough/deskpair.html).
-  Close the pairing tab to end the session.
-
 ## Also here: the produced video
 
 [**video.html**](https://kody-w.github.io/rapp-brainstem-walkthrough/video.html) —
