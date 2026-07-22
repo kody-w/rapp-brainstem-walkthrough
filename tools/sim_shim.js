@@ -59,6 +59,22 @@
     return new Response(text, { status: status || 200, headers: { 'Content-Type': type || 'text/plain' } });
   }
   function hasFile(re) { return Object.keys(S.files).some(function (f) { return re.test(f); }); }
+  // Built-ins the canned brain scripts explicitly; anything else in S.files
+  // is a hot-loaded guest agent and gets generic (but honest) handling.
+  var BUILTIN_FILES = ['basic_agent.py', 'context_memory_agent.py',
+    'manage_memory_agent.py', 'hacker_news_agent.py'];
+  function agentInfo(filename) {
+    var src = S.files[filename] || '';
+    var nm = src.match(/self\.name\s*=\s*['"]([\w@\/ .-]+)['"]/);
+    var display = (nm && nm[1]) || classNamesFor(filename)[0] || filename;
+    var dm = src.match(/["']description["']\s*:\s*["']([^"'\n]{5,300})["']/);
+    return { display: display, desc: (dm && dm[1]) || 'No description in its metadata.' };
+  }
+  function guestAgents() {
+    return Object.keys(S.files).filter(function (f) {
+      return /_agent\.py$/.test(f) && BUILTIN_FILES.indexOf(f) < 0 && !S.custom[f];
+    });
+  }
   function classNamesFor(filename) {
     if (filename === 'basic_agent.py') return [];
     var content = S.files[filename] || '';
@@ -122,6 +138,10 @@
       if (hasFile(/learn_new_agent\.py$/)) bullets.push('- **Build new agents** — describe one in plain words and LearnNew writes the file.');
       Object.keys(S.custom).forEach(function (f) {
         if (S.files[f]) bullets.push('- **' + S.custom[f].display + '** — ' + S.custom[f].desc);
+      });
+      guestAgents().forEach(function (f) {
+        var info = agentInfo(f);
+        bullets.push('- **' + info.display + '** — ' + info.desc + ' *(hot-loaded from `' + f + '`)*');
       });
       bullets.push('- **Hot-load anything** — drop a `*_agent.py` file on this window and it\'s live instantly.');
       response = 'One local brainstem, ready to work. Right now I can:\n\n' + bullets.join('\n') +
@@ -232,7 +252,32 @@
       };
     }
 
-    // 8) Fallback — honest about being the training copy
+    // 8) Hot-loaded guest agent — the file is genuinely registered, but the
+    // training copy only executes the guided-tour agents. Be honest about
+    // that, and point at the two real paths.
+    var foldTxt = function (x) { return (x || '').toLowerCase().replace(/[_\-\s]+/g, ' '); };
+    var msgFold = ' ' + foldTxt(t) + ' ';
+    var guestHit = null, guestScore = 0;
+    guestAgents().forEach(function (f) {
+      var info = agentInfo(f);
+      var words = foldTxt(info.display.replace(/([a-z0-9])([A-Z])/g, '$1 $2'))
+        .split(' ').filter(function (w) { return w.length > 3 && w !== 'agent'; });
+      var hits = words.filter(function (w) { return msgFold.indexOf(' ' + w) >= 0 || msgFold.indexOf(w + ' ') >= 0; }).length;
+      var enough = words.length <= 1 ? hits >= 1 : hits >= 2;
+      if (enough && hits > guestScore) { guestScore = hits; guestHit = { file: f, info: info }; }
+    });
+    if (guestHit) {
+      return {
+        response: '**' + guestHit.info.display + '** is loaded — I can see it in my head (`' + guestHit.file + '`, hot-loaded when you dropped it):\n\n' +
+          '> ' + guestHit.info.desc + '\n\n' +
+          'But I\'ll be straight with you: this is the **training copy**, and only the guided-tour agents actually execute here. I\'m not going to fake its output. To run **' + guestHit.info.display + '** for real:\n' +
+          '- **Go live in this page** — click *"sign in with GitHub to go live"* (bottom left); your dropped agents run as real Python.\n' +
+          '- **Install locally** in one line: **[aka.ms/rappinstall](' + INSTALL_URL + ')**',
+        logs: null
+      };
+    }
+
+    // 9) Fallback — honest about being the training copy
     response = 'Straight answer: this page is the **walkthrough copy** of the brainstem — the real UI wired to a canned brain, so you can train with zero setup. I can act out the guided-tour moves: memory, the agents panel, Hacker News, the registry, and building an agent with LearnNew.\n\n' +
       'Take the tour (the pill in the welcome message above). Want the real thing? Two ways:\n' +
       '- **Go live right here** — click *"sign in with GitHub to go live"* (bottom left) and this exact page becomes a real brainstem running in your browser, powered by your Copilot access.\n' +
