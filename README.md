@@ -1,5 +1,9 @@
 # RAPP Brainstem — The Interactive Walkthrough
 
+<!-- rapp1:network-header:start -->
+[![RAPP/1](https://kody-w.github.io/rapp-hive-public/portfolio/badges/rapp-brainstem-walkthrough.svg)](https://github.com/kody-w/rapp-hive-public/blob/main/portfolio/repos/rapp-brainstem-walkthrough.md) · **New to RAPP?** [Start here: get your Brainstem →](https://github.com/kody-w/rapp-installer#start-here)
+<!-- rapp1:network-header:end -->
+
 **Run it:** https://kody-w.github.io/rapp-brainstem-walkthrough/
 
 The real brainstem UI — byte-identical `index.html` from the product — running
